@@ -102,6 +102,23 @@ model Call {
   @@index([status])
 }
 
+/// AMD results produced for a call (one-to-many). Stores decision and model metadata.
+model AMDResult {
+  id         String   @id @default(cuid())
+  callId     String
+  strategy   String   /// e.g., "gemini", "huggingface", "twilio", "jambonz"
+  decision   String   /// e.g., "human", "voicemail", "machine", "unknown"
+  confidence Float?   /// Model confidence (0..1)
+  details    Json?    /// Additional metadata (transcript, scores, raw output)
+  createdAt  DateTime @default(now())
+
+  call Call @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@map("amd_results")
+  @@index([callId])
+  @@index([strategy])
+}
+
 /// Detailed call logs for analysis and debugging
 model CallLog {
   id          String   @id @default(cuid())
