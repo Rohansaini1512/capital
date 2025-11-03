@@ -95,6 +95,8 @@ model Call {
 
   /// One-to-many relationship with CallLog entries
   callLogs CallLog[]
+  /// One-to-many relationship with AMD results
+  amdResults AMDResult[]
 
   @@map("calls")
   @@index([userId])

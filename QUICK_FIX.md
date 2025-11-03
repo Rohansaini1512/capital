@@ -38,3 +38,5 @@ If this hangs, the database connection is the issue.
 
 Better-Auth might need tables created first. Check the Better-Auth docs for initialization commands.
 
+
+

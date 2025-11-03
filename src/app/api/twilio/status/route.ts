@@ -1,3 +1,47 @@
+/**
+ * Twilio Status Callback webhook
+ */
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+// Optional: verify Twilio signature later for production
+
+export async function POST(request: NextRequest) {
+  try {
+    const formData = await request.formData();
+    const callSid = String(formData.get("CallSid") || "");
+    const callStatus = String(formData.get("CallStatus") || "").toUpperCase();
+    const machineDetection = formData.get("AnsweredBy"); // 'human' | 'machine' | null
+
+    // Find local call by Twilio SID
+    const call = await prisma.call.findFirst({ where: { twilioCallSid: callSid } });
+    if (call) {
+      let newStatus = call.status;
+      if (callStatus === "RINGING") newStatus = "RINGING";
+      if (callStatus === "IN-PROGRESS") newStatus = "IN_PROGRESS";
+      if (callStatus === "COMPLETED") newStatus = "COMPLETED";
+
+      // Map basic machine detection
+      if (machineDetection === "human") newStatus = "HUMAN_DETECTED";
+      if (machineDetection === "machine") newStatus = "VOICEMAIL_DETECTED";
+
+      await prisma.call.update({ where: { id: call.id }, data: { status: newStatus } });
+      await prisma.callLog.create({
+        data: {
+          callId: call.id,
+          eventType: "twilio_status",
+          metadata: Object.fromEntries(formData as any),
+        },
+      });
+    }
+
+    return new NextResponse("ok", { status: 200 });
+  } catch (e) {
+    console.error("Twilio status error", e);
+    return new NextResponse("error", { status: 500 });
+  }
+}
+
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
