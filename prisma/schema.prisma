@@ -1,4 +1,3 @@
-// Prisma schema for Capital Telephony AMD Application
 
 generator client {
   provider = "prisma-client-js"
