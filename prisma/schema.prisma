@@ -1,0 +1,133 @@
+// Prisma schema for Capital Telephony AMD Application
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// User model managed by Better-Auth
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  emailVerified Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// One-to-many relationship with Call records
+  calls Call[]
+  /// Relations used by Better-Auth
+  sessions Session[]
+  accounts Account[]
+
+  // Map to singular `user` table which Better-Auth expects by default
+  @@map("user")
+}
+
+// Session table used by Better-Auth
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  ipAddress String?
+  userAgent String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+  @@index([userId])
+}
+
+// Account table for OAuth/social providers
+model Account {
+  id                   String   @id @default(cuid())
+  accountId            String
+  providerId           String
+  userId               String
+  accessToken          String?
+  refreshToken         String?
+  idToken              String?
+  accessTokenExpiresAt DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                String?
+  password             String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("account")
+  @@index([userId])
+}
+
+// Verification codes (email verification, password reset, etc.)
+model Verification {
+  id        String   @id @default(cuid())
+  identifier String
+  value     String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("verification")
+}
+
+/// Call session tracking
+model Call {
+  id          String   @id @default(cuid())
+  userId      String
+  targetNumber String
+  amdStrategy String   /// Selected AMD strategy (e.g., "gemini", "huggingface", "jambonz")
+  status      CallStatus @default(PENDING)
+  twilioCallSid String? /// Twilio Call SID for tracking
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  /// Relationship to user who initiated the call
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// One-to-many relationship with CallLog entries
+  callLogs CallLog[]
+
+  @@map("calls")
+  @@index([userId])
+  @@index([createdAt])
+  @@index([status])
+}
+
+/// Detailed call logs for analysis and debugging
+model CallLog {
+  id          String   @id @default(cuid())
+  callId      String
+  timestamp   DateTime @default(now())
+  eventType   String   /// e.g., "answered", "voicemail_detected", "human_detected", "error"
+  metadata    Json?    /// Additional event data (audio analysis results, confidence scores, etc.)
+  createdAt   DateTime @default(now())
+
+  /// Relationship to parent call
+  call Call @relation(fields: [callId], references: [id], onDelete: Cascade)
+
+  @@map("call_logs")
+  @@index([callId])
+  @@index([timestamp])
+  @@index([eventType])
+}
+
+/// Enum for call status
+enum CallStatus {
+  PENDING      /// Call initiated, awaiting connection
+  RINGING      /// Call is ringing
+  IN_PROGRESS  /// Call connected, AMD processing
+  HUMAN_DETECTED /// Human answered, connected to live session
+  VOICEMAIL_DETECTED /// Voicemail detected, call terminated
+  MACHINE_DETECTED /// Machine detected (non-voicemail), call terminated
+  FAILED       /// Call failed or error occurred
+  COMPLETED    /// Call completed successfully
+}
