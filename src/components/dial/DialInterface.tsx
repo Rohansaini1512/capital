@@ -78,13 +78,16 @@ export function DialInterface() {
     setLoading(true);
 
     try {
+        // Send digits-only phone number to the API (server expects 10 or 11 digits)
+        const digitsOnly = formData.targetNumber.replace(/\D/g, "");
+        
       const response = await fetch("/api/calls/initiate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          targetNumber: formData.targetNumber.replace(/\D/g, ""),
+            targetNumber: digitsOnly,
           amdStrategy: formData.amdStrategy,
         }),
       });
